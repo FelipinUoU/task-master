@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Master - (MVC Edition)</title>
+    <title>Task Master - (MVVM Edition)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; color: #333; display: flex; justify-content: center; padding-top: 50px; }
         .container { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
@@ -24,7 +24,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>Task Master (MVC Edition)</h1>
+    <h1>Task Master (MVVM Edition)</h1>
    
     <?php if (isset($error)): ?>
         <div class="error"><?php echo $error; ?></div>
