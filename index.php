@@ -11,8 +11,23 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec("CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
+    description TEXT,
+    due_date TEXT NOT NULL,
+    responsible TEXT NOT NULL,
     done INTEGER DEFAULT 0
 )");
+
+// Adiciona as novas colunas quando o banco já contém tarefas existentes.
+$columns = $pdo->query("PRAGMA table_info(tasks)")->fetchAll(PDO::FETCH_COLUMN, 1);
+if (!in_array('description', $columns, true)) {
+    $pdo->exec("ALTER TABLE tasks ADD COLUMN description TEXT");
+}
+if (!in_array('due_date', $columns, true)) {
+    $pdo->exec("ALTER TABLE tasks ADD COLUMN due_date TEXT NOT NULL DEFAULT ''");
+}
+if (!in_array('responsible', $columns, true)) {
+    $pdo->exec("ALTER TABLE tasks ADD COLUMN responsible TEXT NOT NULL DEFAULT ''");
+}
 
 // 2. LÓGICA DE NEGÓCIO E CONTROLE DE REQUISIÇÕES MISTURADOS
 $error = '';
@@ -20,13 +35,30 @@ $error = '';
 // Criar nova tarefa
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['title'])) {
     $title = trim($_POST['title']);
+    $description = trim($_POST['description'] ?? '');
+    $dueDate = trim($_POST['due_date'] ?? '');
+    $responsible = trim($_POST['responsible'] ?? '');
     
     // Regra de negócio solta no meio do arquivo
     if (empty($title)) {
         $error = "O título da tarefa não pode estar vazio!";
+    } elseif ($dueDate === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
+        $error = "Informe uma data de vencimento válida!";
     } else {
-        $stmt = $pdo->prepare("INSERT INTO tasks (title) VALUES (:title)");
+        [$year, $month, $day] = array_map('intval', explode('-', $dueDate));
+        if (!checkdate($month, $day, $year)) {
+            $error = "Informe uma data de vencimento válida!";
+        } elseif ($responsible === '') {
+            $error = "Informe o responsável pela tarefa!";
+        }
+    }
+
+    if ($error === '') {
+        $stmt = $pdo->prepare("INSERT INTO tasks (title, description, due_date, responsible) VALUES (:title, :description, :due_date, :responsible)");
         $stmt->bindValue(':title', $title);
+        $stmt->bindValue(':description', $description);
+        $stmt->bindValue(':due_date', $dueDate);
+        $stmt->bindValue(':responsible', $responsible);
         $stmt->execute();
         
         // Redirecionamento misturado com a lógica
@@ -65,13 +97,16 @@ $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .container { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
         h1 { font-size: 1.5rem; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         .error { color: #dc2626; background: #fee2e2; padding: 10px; border-radius: 4px; font-size: 0.9rem; }
-        .form-group { display: flex; gap: 10px; margin-top: 20px; margin-bottom: 20px; }
-        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .form-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; margin-bottom: 20px; }
+        input, textarea { box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font: inherit; }
+        textarea { resize: vertical; }
         button { background: #2563eb; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
         button:hover { background: #1d4ed8; }
         ul { list-style: none; padding: 0; }
         li { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
         li.done span { text-decoration: line-through; color: #9ca3af; }
+        .task-details { display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+        .task-details small { color: #6b7280; }
         .actions a { text-decoration: none; margin-left: 10px; cursor: pointer; }
     </style>
 </head>
@@ -81,18 +116,29 @@ $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <h1>Task Master (Spaghetti Edition)</h1>
 
     <?php if ($error): ?>
-        <div class="error"><?php echo $error; ?></div>
+        <div class="error"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
     <?php endif; ?>
 
     <form method="POST" action="index.php" class="form-group">
-        <input type="text" name="title" placeholder="O que precisa ser feito?" autocomplete="off">
+        <input type="text" name="title" placeholder="O que precisa ser feito?" autocomplete="off" required>
+        <textarea name="description" placeholder="Descrição (opcional)" rows="3"></textarea>
+        <label for="due_date">Data de vencimento</label>
+        <input type="date" id="due_date" name="due_date" required>
+        <label for="responsible">Responsável</label>
+        <input type="text" id="responsible" name="responsible" placeholder="Nome do responsável" required>
         <button type="submit">Adicionar</button>
     </form>
 
     <ul>
         <?php foreach ($tasks as $task): ?>
             <li class="<?php echo $task['done'] ? 'done' : ''; ?>">
-                <span><?php echo htmlspecialchars($task['title']); ?></span>
+                <div class="task-details">
+                    <span><?php echo htmlspecialchars($task['title'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <?php if (!empty($task['description'])): ?>
+                        <small><?php echo nl2br(htmlspecialchars($task['description'], ENT_QUOTES, 'UTF-8')); ?></small>
+                    <?php endif; ?>
+                    <small>Vencimento: <?php echo htmlspecialchars($task['due_date'], ENT_QUOTES, 'UTF-8'); ?> · Responsável: <?php echo htmlspecialchars($task['responsible'], ENT_QUOTES, 'UTF-8'); ?></small>
+                </div>
                 
                 <div class="actions">
                     <?php if (!$task['done']): ?>
