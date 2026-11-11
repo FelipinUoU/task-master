@@ -1,37 +1,21 @@
-<?php
-// Atualizamos o Autoload para incluir a pasta Presenter
-spl_autoload_register(function ($class) {
-    $dirs = ['Model', 'Presenter', 'View'];
-    foreach ($dirs as $dir) {
-        $file = __DIR__ . "/src/$dir/$class.php";
-        if (file_exists($file)) {
-            require_once $file;
-        }
-    }
-});
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Task Master - MVVM Edition</title>
+    <link rel="stylesheet" href="style.css"> </head>
+<body>
+    <div id="app" class="container">
+        <h1>Task Master (MVVM)</h1>
+       
+        <div class="form-group">
+            <input type="text" id="taskTitle" placeholder="O que precisa ser feito?">
+            <button id="addBtn">Adicionar</button>
+        </div>
 
-$pdo = new PDO('sqlite:' . __DIR__ . '/tasks.sqlite');
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        <ul id="taskList"></ul>
+    </div>
 
-// 1. Instanciamos o Model
-$model = new Task($pdo);
-
-// 2. Instanciamos a View (que implementa TaskViewInterface)
-$view = new TaskHtmlView();
-
-// 3. Instanciamos o Presenter, injetando as dependências
-$presenter = new TaskPresenter($model, $view);
-
-// Roteamento
-$action = $_GET['action'] ?? 'index';
-
-if ($action === 'create') {
-    $presenter->create($_POST['title'] ?? '', $_POST['description'] ?? '', $_POST['due_date'] ?? '');
-} elseif ($action === 'complete') {
-    $presenter->complete($_GET['id']);
-} elseif ($action === 'delete') {
-    $presenter->delete($_GET['id']);
-} else {
-    $presenter->index();
-}
-?>
+    <script src="js/TaskViewModel.js"></script>
+</body>
+</html>
